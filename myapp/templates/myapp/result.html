@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>アップロード結果</title>
+    <!-- ここを調整すればボタンの位置やテキストの位置を変えられます -->
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+    }
+    .center-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;  /* 水平方向中央寄せ */
+        justify-content: center; /* 垂直方向中央寄せ */
+        height: 100vh; /* 画面全体を使用 */
+    }
+    </style>
+</head>
+<body>
+    <div class="center-container">
+        <h1>OK</h1>
+        <p>アップロードに成功しました。</p>
+        <form action="{% url 'index' %}" method="get">
+            <button type="submit">アップロード画面に戻る</button>
+        </form>
+    </div>
+</body>
+</html>

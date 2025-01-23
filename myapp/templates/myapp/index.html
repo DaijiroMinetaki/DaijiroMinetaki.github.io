@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>PDF分析</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #ffffff; /* 白背景 */
+            font-family: 'Helvetica Neue', Helvetica, Arial, 'ヒラギノ角ゴ Pro W3', 'Hiragino Kaku Gothic Pro', 'メイリオ', Meiryo, sans-serif;
+            color: #333; /* 文字色をダークグレーに */
+        }
+        .center-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 20px 0;
+            background: #f5f5f5; /* 薄いグレー背景 */
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #006699; /* ビジネスライクなブルー */
+        }
+
+        /* アプリの説明文スタイル追加 */
+        .description {
+            max-width: 800px;
+            margin-bottom: 20px;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .content-area {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0 20px;
+            max-width: 1200px; /* コンテナの横幅を制限 */
+        }
+
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 350px;
+            background: #fff; /* 白背景 */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .drop-zone {
+            border: 2px dashed #006699;
+            border-radius: 10px;
+            width: 300px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            background: #e6f2f8; /* 薄いブルー */
+            color: #006699;
+            cursor: pointer;
+        }
+        .drop-zone.hover {
+            background: #d0e7f3;
+        }
+        /* ファイルが選択されている場合にドロップゾーンを非表示にする */
+        .drop-zone.hidden {
+            display: none;
+        }
+
+        .file-list {
+            margin: 20px 0;
+            text-align: left;
+            width: 300px;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f9f9f9;
+            border: 1px solid #ccc;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        .file-name {
+            margin: 0;
+            padding: 0;
+            word-break: break-all;
+        }
+        .remove-button {
+            background: none;
+            color: #e74c3c;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .button-group button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: not-allowed; /* 初期状態ではクリック不可 */
+            background: #ccc;
+            color: #fff;
+            font-weight: bold;
+            width: 100%;
+        }
+        #upload-button {
+            background: #006699;
+            display: none; /* 初期状態で非表示に */
+        }
+        #upload-button.enabled {
+            cursor: pointer;
+            background: #006699;
+            display: block; /* ファイルが選択されたら表示 */
+        }
+        #upload-button.enabled:hover {
+            background: #005680;
+        }
+
+        #edit-button {
+            background: #999999;
+        }
+        #edit-button:hover {
+            background: #777777;
+        }
+
+        .right-column {
+            flex: 1;
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            height: 80vh;
+            max-height: none;
+            gap: 2%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .right-column .top-section, .right-column .bottom-section {
+            background: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .right-column h2 {
+            margin-top: 0;
+            color: #006699;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left:0;
+            width:100%; height:100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .modal-content {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            padding: 2%;
+            border-radius: 10px;
+            width: 80%;
+            height: 80vh;
+            box-sizing: border-box;
+            max-width: 800px;
+        }
+        .modal-content h2 {
+            margin-top:0;
+            color: #006699;
+        }
+        #modal-text-input {
+            width: 100%;
+            height: 50%;
+            resize: vertical;
+            box-sizing: border-box;
+            padding: 10px;
+            font-size: 18px;
+            line-height: 1.5;
+            overflow-wrap: break-word;
+            flex-grow: 1;
+        }
+        .param-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            justify-content: space-between;
+        }
+        .param-label {
+            width: 15%; 
+            text-align: left;
+            font-weight: bold;
+            white-space: nowrap; 
+            color: #333;
+        }
+        .slider-group {
+            flex: 1;
+            margin: 0 10px;
+        }
+        .slider-group input[type="range"] {
+            width: 100%;
+        }
+        .param-value {
+            width: 15%; 
+            text-align: right;
+        }
+
+        .modal-buttons {
+            display:flex;
+            justify-content:flex-end;
+            gap:10px;
+            margin-top: auto;
+        }
+        .modal-buttons button {
+            padding:5px 20px;
+            border:none;
+            border-radius:5px;
+            cursor:pointer;
+            font-weight: bold;
+        }
+        #modal-close {
+            background:#aaa; 
+            color:#fff;
+        }
+        #modal-ok {
+            background:#006699; 
+            color:#fff;
+        }
+
+        /* ローディングオーバーレイ */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        .loading-overlay .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #006699;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* inputファイル選択ボタンのスタイルを隠す */
+        #file-input {
+            display: none;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form');
+            const dropZone = document.getElementById('drop-zone');
+            const fileListDiv = document.querySelector('.file-list');
+            const rightColumnTop = document.querySelector('.right-column .top-section');
+            const rightColumnBottom = document.querySelector('.right-column .bottom-section');
+            const fileInput = document.getElementById('file-input');
+            const uploadButton = document.getElementById('upload-button');
+            const editButton = document.getElementById('edit-button');
+            let allFiles = [];
+
+            // ファイルリスト更新
+            function updateFileList() {
+                fileListDiv.innerHTML = '';
+                allFiles.forEach((file, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'file-item';
+                    const nameP = document.createElement('p');
+                    nameP.className = 'file-name';
+                    nameP.textContent = file.name;
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-button';
+                    removeBtn.innerHTML = '×';
+                    removeBtn.addEventListener('click', function() {
+                        removeFile(index);
+                    });
+                    item.appendChild(nameP);
+                    item.appendChild(removeBtn);
+                    fileListDiv.appendChild(item);
+                });
+
+                // ファイルがある場合はアップロードボタンを有効化
+                if (allFiles.length > 0) {
+                    uploadButton.disabled = false;
+                    uploadButton.classList.add('enabled');
+                    uploadButton.style.display = 'block'; // アップロードボタンを表示
+                    dropZone.classList.add('hidden'); // ドロップゾーンを非表示
+                } else {
+                    uploadButton.disabled = true;
+                    uploadButton.classList.remove('enabled');
+                    uploadButton.style.display = 'none'; // アップロードボタンを非表示
+                    dropZone.classList.remove('hidden'); // ドロップゾーンを表示
+                }
+            }
+
+            // ファイル追加
+            function addFileToList(file) {
+                // PDFファイルかチェック
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                if (fileExtension !== 'pdf') {
+                    alert('PDFファイルのみ選択してください。');
+                    return;
+                }
+                // すでにファイルが選択されている場合は追加できない
+                if (allFiles.length >= 1) {
+                    alert('複数のファイルは選択できません。');
+                    return;
+                }
+                allFiles.push(file);
+                updateFileList();
+            }
+
+            // ファイル削除
+            function removeFile(index) {
+                allFiles.splice(index, 1);
+                updateFileList();
+            }
+
+            // ドラッグ&ドロップ領域関連
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.classList.add('hover');
+            });
+            dropZone.addEventListener('dragleave', function() {
+                dropZone.classList.remove('hover');
+            });
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('hover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0]; // 最初のファイルのみ取得
+                    addFileToList(file);
+                }
+            });
+
+            // ドラッグ&ドロップ領域をクリックでファイル選択
+            dropZone.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            // ファイル選択
+            fileInput.addEventListener('change', function() {
+                if (fileInput.files.length > 0) {
+                    const file = fileInput.files[0]; // 最初のファイルのみ取得
+                    addFileToList(file);
+                }
+                fileInput.value = '';
+            });
+
+            // アップロード処理
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                // ローディングオーバーレイを表示
+                const loadingOverlay = document.getElementById('loading-overlay');
+                loadingOverlay.style.display = 'flex';
+
+                const formData = new FormData();
+                allFiles.forEach(file => {
+                    formData.append('files', file);
+                });
+
+                formData.append('promptText', savedParams.promptText);
+                formData.append('temperature', savedParams.temperature);
+                formData.append('maxTokens', savedParams.maxTokens);
+                formData.append('topP', savedParams.topP);
+
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(text => {
+                    rightColumnTop.innerHTML = `
+                        <h2>ステータス:</h2>
+                        <p>${text.topText}</p>
+                    `;
+                    rightColumnBottom.innerHTML = `
+                        <h2>出力:</h2>
+                        <p>${text.bottomText}</p>
+                    `;
+                }).catch(() => {
+                    alert("エラーが発生しました");
+                }).finally(() => {
+                    // ローディングオーバーレイを非表示
+                    loadingOverlay.style.display = 'none';
+                });
+            });
+
+            // モーダル処理
+            const modalOverlay = document.getElementById('modal-overlay');
+            const modalClose = document.getElementById('modal-close');
+            const modalOK = document.getElementById('modal-ok');
+
+            const tempSlider = document.getElementById('temp-slider');
+            const tempInput = document.getElementById('temp-input');
+            const maxTokenSlider = document.getElementById('max-token-slider');
+            const maxTokenInput = document.getElementById('max-token-input');
+            const topPSlider = document.getElementById('top-p-slider');
+            const topPInput = document.getElementById('top-p-input');
+
+            const djangoFileContent = "{{ file_content|escapejs }}";
+
+            let savedParams = {
+                promptText: djangoFileContent,
+                temperature: 0.5,
+                maxTokens: 4000,
+                topP: 0.9
+            };
+
+            function syncSliderWithInput(slider, input) {
+                slider.addEventListener('input', () => {
+                    input.value = slider.value;
+                });
+                input.addEventListener('input', () => {
+                    if (input.value >= slider.min && input.value <= slider.max) {
+                        slider.value = input.value;
+                    }
+                });
+            }
+
+            syncSliderWithInput(tempSlider, tempInput);
+            syncSliderWithInput(maxTokenSlider, maxTokenInput);
+            syncSliderWithInput(topPSlider, topPInput);
+
+            // Editボタンでモーダルを開く
+            editButton.addEventListener('click', function() {
+                modalOverlay.style.display = 'flex';
+
+                document.getElementById('modal-text-input').value = savedParams.promptText;
+                tempSlider.value = savedParams.temperature;
+                tempInput.value = savedParams.temperature;
+                maxTokenSlider.value = savedParams.maxTokens;
+                maxTokenInput.value = savedParams.maxTokens;
+                topPSlider.value = savedParams.topP;
+                topPInput.value = savedParams.topP;
+            });
+
+            // キャンセルボタンでモーダルを閉じる
+            modalClose.addEventListener('click', function() {
+                modalOverlay.style.display = 'none';
+            });
+
+            // OKボタンでパラメータを保存
+            modalOK.addEventListener('click', function() {
+                const promptText = document.getElementById('modal-text-input').value;
+                const temperature = parseFloat(document.getElementById('temp-input').value);
+                const maxTokens = parseInt(document.getElementById('max-token-input').value, 10);
+                const topP = parseFloat(document.getElementById('top-p-input').value);
+
+                savedParams = {
+                    promptText: promptText,
+                    temperature: temperature,
+                    maxTokens: maxTokens,
+                    topP: topP
+                };
+
+                document.getElementById('hidden-prompt').value = promptText;
+                document.getElementById('hidden-temperature').value = temperature;
+                document.getElementById('hidden-maxTokens').value = maxTokens;
+                document.getElementById('hidden-topP').value = topP;
+
+                modalOverlay.style.display = 'none';
+            });
+        });
+
+        // ローディングオーバーレイの作成
+        window.onload = function() {
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.id = 'loading-overlay';
+            loadingOverlay.className = 'loading-overlay';
+            loadingOverlay.innerHTML = '<div class="spinner"></div>';
+            document.body.appendChild(loadingOverlay);
+        };
+    </script>
+</head>
+<body>
+    <div class="center-container">
+        <h1>PDF分析</h1>
+
+        <!-- アプリの説明文を追加 -->
+        <div class="description">
+            <p><b>このアプリはPDFファイルをアップロードし、外部提出が可能かを分析するツールです。</b></br>
+            ・PDFファイルのみをアップロード可能です。</br>
+            ・PDFファイルは1ファイルずつ、1ファイルあたり50ページまでアップロード可能です。</br>
+            ・精度を調整したい場合は、「edit」ボタンよりプロンプトを修正してください。</p>
+        </div>
+
+        <div class="content-area">
+            <div class="left-column">
+                <div id="drop-zone" class="drop-zone">
+                    ファイルをドラッグ＆ドロップまたはクリックして選択
+                </div>
+                <!-- accept属性を追加し、multiple属性を削除 -->
+                <input type="file" id="file-input" accept=".pdf">
+                <div class="file-list"></div>
+                <form action="{% url 'upload' %}" method="post" enctype="multipart/form-data">
+                    <input type="hidden" id="hidden-prompt" name="promptText" value="">
+                    <input type="hidden" id="hidden-temperature" name="temperature" value="0.5">
+                    <input type="hidden" id="hidden-maxTokens" name="maxTokens" value="4000">
+                    <input type="hidden" id="hidden-topP" name="topP" value="0.9">
+
+                    {% csrf_token %}
+                    <div class="button-group">
+                        <button id="upload-button" type="submit" disabled>アップロード</button>
+                        <button id="edit-button" type="button">Edit</button>
+                    </div>
+                </form>
+            </div>
+            <div class="right-column">
+                <!-- 右側のコンテンツは元のまま -->
+                <div class="top-section">
+                    <h2>ステータス:</h2>
+                    <p>ファイルをアップロードしてください。</p>
+                </div>
+                <div class="bottom-section">
+                    <h2>出力:</h2>
+                    <p>ここに結果が表示されます。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル(ポップアップ) -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-content">
+            <h2>パラメータの編集</h2>
+            <textarea id="modal-text-input" placeholder="プロンプトの編集" rows="10" maxlength="4000"></textarea>
+
+            <div class="param-group">
+                <label class="param-label" for="temp-slider">Temperature:</label>
+                <div class="slider-group">
+                    <input type="range" id="temp-slider" min="0" max="2" step="0.1" value="0.5">
+                </div>
+                <input type="number" id="temp-input" min="0" max="2" step="0.1" value="0.5" class="param-value">
+            </div>
+            
+            <div class="param-group">
+                <label class="param-label" for="max-token-slider">Max Tokens:</label>
+                <div class="slider-group">
+                    <input type="range" id="max-token-slider" min="50" max="4096" step="50" value="4000">
+                </div>
+                <input type="number" id="max-token-input" min="50" max="4096" step="50" value="4000" class="param-value">
+            </div>
+            
+            <div class="param-group">
+                <label class="param-label" for="top-p-slider">Top P:</label>
+                <div class="slider-group">
+                    <input type="range" id="top-p-slider" min="0" max="1" step="0.1" value="0.9">
+                </div>
+                <input type="number" id="top-p-input" min="0" max="1" step="0.1" value="0.9" class="param-value">
+            </div>
+
+            <div class="modal-buttons">
+                <button id="modal-close">キャンセル</button>
+                <button id="modal-ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ローディングオーバーレイ -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+</body>
+</html>
